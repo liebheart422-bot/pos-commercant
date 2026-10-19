@@ -26,6 +26,49 @@ app.get('/api//health', async (req, res) => {
         res.status(500).json({status:'erreur', message:'base innaccessible'});
     }
 });
+
+
+app.get('/api/produits', async (req, res) => {
+    try{
+        const commercantId = 1 ; 
+        const [rows] = await pool.query (
+            'SELECT * FROM prduits WHERE commercant_id = ? AND actif = TRUE',
+            [commercantId]
+        );
+        res.json(rows);
+    }catch(err){
+        console.error(err);
+        res.json(500).json({message:'erreur serveur'});
+    }
+});
+
+
+app.post('/api/produits', async (req, res) => {
+    try{
+        const commercantId = 1;
+        const {nom, categorie, prix_achat, prix_vente, quantite_stock, seuil_alerte} = req.body;
+
+        if(!nom || prix_vente === undefined) {
+            return res.status(400).json({message: 'les prix et quantités sont obligatoires'});
+        }
+
+        if(Number(prix_vente) < 0 || Number(prix_achat || 0) < 0 || Number(quantite_stock || 0) < 0){
+            return res.status(400).json({message:'les prix et quantites ne peuvent pas etre negatifs'});
+        }
+        const [result] = await pool.query(
+            `INSERT INTO produits
+            (commercant_id, nom_prod, categorie, prix_achat, prix_vente, quantite_stock, seuil_alerte)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [commercantId, nom, categorie || null,  prix_achat || 0, prix_vente, quantite_stock || 0, seuil_alerte || 0]  
+        );
+
+        res.status(201).json({id: result.insertId, message: 'produit créé'});
+    }catch(err){
+        console.error(err);
+        res.status(500).json({message:'erreur serveur'})
+    }
+});
+
 app.listen(process.env.PORT, () => {
-    console.log('serveur lancé avec succès sur http://localhost:${process.env.PORT');
+    console.log('serveur lancé avec succès sur http://localhost:${process.env.PORT}');
 });
