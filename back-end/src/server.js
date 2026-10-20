@@ -32,14 +32,33 @@ app.get('/api/produits', async (req, res) => {
     try{
         const commercantId = 1 ; 
         const [rows] = await pool.query (
-            'SELECT * FROM prduits WHERE commercant_id = ? AND actif = TRUE',
+            'SELECT * FROM produits WHERE commercant_id = ? AND actif = TRUE',
             [commercantId]
         );
         res.json(rows);
     }catch(err){
         console.error(err);
-        res.json(500).json({message:'erreur serveur'});
+        res.status(500).json({message:'erreur serveur'});
     }
+});
+
+app.get('/api/produits/:id', async (req, res) => {
+    try{
+        commercantId = 1;
+        const  {id} = req.params;
+        const [rows] = await pool.query(
+            `SELECT * FROM produits WHERE id = ? AND commercant_id = ?`,
+            [id, commercantId]
+        );
+        if(rows.length === 0) {
+            return res.status(404).json({message:'produit introvable'});
+        }
+            res.json(rows[0]);
+    }catch(err){
+        console.error(err)
+        res.status(500).json({message:"erreur serveur"})
+    }
+
 });
 
 
@@ -69,6 +88,84 @@ app.post('/api/produits', async (req, res) => {
     }
 });
 
+app.put('/api/produits/:id', async (req, res) => {
+    try{
+        const commercantId = 1;
+        const  {id} = req.params;
+        const{nom, categorie, prix_achat, prix_vente, seuil_alerte} = req.body;
+
+        if(!nom || prix_vente === undefined || Number(prix_vente) < 0 )
+        {
+            return res.status(400).json({message:"nom et prix de vente obligatoires"});
+        }
+
+        const [result] = await pool.query(
+            `UPDATE produits
+            SET nom_prod = ?, categorie = ?, prix_achat = ?, prix_vente = ?, seuil_alerte = ?
+            WHERE id =? AND commercant_id = ?`,
+            [nom, categorie || null, prix_achat || 0 , prix_vente, seuil_alerte || 0, id, commercantId ]
+        );
+
+        if (result.affectedRows === 0 ){
+            return res.status(404).json({message:'produit introuvable'});
+        }
+        res.json({message: "produit modifié"});
+    }catch(err){
+        console.error(err);
+        res.status(500).json({message:"erreur serveur"})
+    }
+})
+
+app.delete('/api/produits/:id', async (req, res) =>  {
+    try{
+        const commercantId = 1 ;
+        const [result] = await pool.query(
+            `UPDATE produits SET actif = FALSE WHERE id = ? AND commercant_id = ?`,
+            [req.params.id, commercantId] 
+        );
+
+        if (result.affectedRows ===0) {
+            return res.status(404).json({message:"produit introuvable"});
+        }
+        res.json({message:'produit archivé'})
+    }catch(err){
+        console.error(err);quantite_stock
+        res.status(500).json({message:'erreur serveur'});
+    }
+});
+
+app.post('/api/produits/:id/restock', async (req, res) => {
+   try{
+        const commercantId = 1;
+        const {id} = req.params;
+        const {quantite} = req.body;
+
+        if (!Number.isInteger(quantite) || quantite <= 0) {
+            return res.status(400).json({message:'quantite doit etre en entier'});
+        }
+        const [result] = await pool.query(
+            `UPDATE produits SET quantite_stock = quantite_stock + ? 
+            WHERE id = ? AND commercant_id = ?`,
+            [quantite, id, commercantId]
+    );
+    if(result.affectedRows === 0) {
+        return res.status(404).json({message: "produit introuvable"});
+    }
+
+    await pool.query(
+        `INSERT INTO mouvements_stock(
+        commercant_id, produit_id, type, quantite, motif)
+        VALUES(?, ?, 'entree', ?, 'reaprovisionnement')`,
+        [commercantId, id,quantite]
+    );
+    res.json({message:'stock a jourr'})
+   }catch(err){
+    console.error(err);
+        res.status(500).json({message:'erreur de serveur'});
+    
+   }
+});
+
 app.listen(process.env.PORT, () => {
-    console.log('serveur lancé avec succès sur http://localhost:${process.env.PORT}');
+    console.log(`serveur lancé avec succès sur http://localhost:${process.env.PORT}`);
 });

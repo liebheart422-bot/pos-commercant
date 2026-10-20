@@ -160,3 +160,51 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+--
+-- Structure de la table `mouvements_stock`
+--
+
+CREATE TABLE `mouvements_stock` (
+  `id` int(11) NOT NULL,
+  `commercant_id` int(11) NOT NULL,
+  `produit_id` int(11) NOT NULL,
+  `type` varchar(20) NOT NULL,
+  `quantite` int(11) NOT NULL,
+  `motif` varchar(150) DEFAULT NULL,
+  `date_mouvement` datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Index pour les tables déchargées
+--
+
+--
+-- Index pour la table `mouvements_stock`
+--
+ALTER TABLE `mouvements_stock`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `commercant_id` (`commercant_id`),
+  ADD KEY `produit_id` (`produit_id`);
+
+--
+-- AUTO_INCREMENT pour les tables déchargées
+--
+
+--
+-- AUTO_INCREMENT pour la table `mouvements_stock`
+--
+ALTER TABLE `mouvements_stock`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Contraintes pour les tables déchargées
+--
+
+--
+-- Contraintes pour la table `mouvements_stock`
+--
+ALTER TABLE `mouvements_stock`
+  ADD CONSTRAINT `mouvements_stock_ibfk_1` FOREIGN KEY (`commercant_id`) REFERENCES `commercants` (`id`),
+  ADD CONSTRAINT `mouvements_stock_ibfk_2` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`);
+COMMIT;
