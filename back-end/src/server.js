@@ -135,35 +135,85 @@ app.delete('/api/produits/:id', async (req, res) =>  {
 });
 
 app.post('/api/produits/:id/restock', async (req, res) => {
-   try{
-        const commercantId = 1;
-        const {id} = req.params;
-        const {quantite} = req.body;
 
-        if (!Number.isInteger(quantite) || quantite <= 0) {
+    const commercantId = 1;
+    const {id} = req.params;
+    const {quantite} = req.body;
+
+    if (!Number.isInteger(quantite) || quantite <= 0) {
             return res.status(400).json({message:'quantite doit etre en entier'});
-        }
-        const [result] = await pool.query(
-            `UPDATE produits SET quantite_stock = quantite_stock + ? 
-            WHERE id = ? AND commercant_id = ?`,
-            [quantite, id, commercantId]
-    );
-    if(result.affectedRows === 0) {
-        return res.status(404).json({message: "produit introuvable"});
     }
 
-    await pool.query(
+    const conn = await pool.getConnection();
+    try{
+        await conn.beginTransaction();
+
+        const [result] = await conn.query(
+           `UPDATE produits SET quantite_stock = quantite_stock + ? 
+            WHERE id = ? AND commercant_id = ?`,
+            [quantite, id, commercantId ]
+        );
+
+        if(result.affectedRows === 0) {
+            await conn.rollback();
+        return res.status(404).json({message: "produit introuvable"});
+        }
+
+        await conn.query(
         `INSERT INTO mouvements_stock(
         commercant_id, produit_id, type, quantite, motif)
         VALUES(?, ?, 'entree', ?, 'reaprovisionnement')`,
         [commercantId, id,quantite]
-    );
-    res.json({message:'stock a jourr'})
-   }catch(err){
-    console.error(err);
+        );
+
+        await conn.commit();
+        res.json({message:'stock a jour'});
+    } catch(err){
+        await conn.roolback()
+        console.error(err);
         res.status(500).json({message:'erreur de serveur'});
-    
-   }
+    }finally {
+        conn.release();
+    }
+});
+
+app.post('/api/ventes', async (req, res) => {
+    try{
+        const commercantId = 1; 
+        const {produit_id, quantite} = req.body;
+
+        if (!Number.isInteger(quantite) || quantite <= 0)
+        {
+            return res.status(400).json({message:'quantite invalide'});
+        }
+
+        const [rows] = await pool.query(
+            `SELECT * FROM produits WHERE id = ? AND commercant_id = ? AND actif = TRUE`,
+            [produit_id, commercantId, quantite]
+        );
+
+        if(rows.length === 0) {
+            return res.status(404).json({message:"produits introuvable"});
+        }
+
+        const produit = rows[0];
+
+        //2. verifier le stock
+
+        if(produit.quantite_stock <  quantite) 
+        {
+            return res.status(400).json({message:'stock insuffisant'});
+        }
+
+        //3. calculer le total cote serveur
+
+        const total = produit.prix_vente * quantite;
+
+        res.json({produit: produit.nom_prod, quantite, total});
+    }catch(err){
+        console.error(err)
+        res.status(500).json({message:'erreur serveur'});
+    }
 });
 
 app.listen(process.env.PORT, () => {

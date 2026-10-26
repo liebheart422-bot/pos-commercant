@@ -208,3 +208,129 @@ ALTER TABLE `mouvements_stock`
   ADD CONSTRAINT `mouvements_stock_ibfk_1` FOREIGN KEY (`commercant_id`) REFERENCES `commercants` (`id`),
   ADD CONSTRAINT `mouvements_stock_ibfk_2` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`);
 COMMIT;
+
+
+
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Structure de la table `ventes`
+--
+
+CREATE TABLE `ventes` (
+  `id` int(11) NOT NULL,
+  `commercant_id` int(11) NOT NULL,
+  `date_vente` datetime DEFAULT current_timestamp(),
+  `total` decimal(10,2) NOT NULL,
+  `montant_recu` decimal(10,2) DEFAULT NULL,
+  `monnaie` decimal(10,2) DEFAULT NULL,
+  `statut` varchar(20) NOT NULL DEFAULT 'validee'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Index pour les tables déchargées
+--
+
+--
+-- Index pour la table `ventes`
+--
+ALTER TABLE `ventes`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `commercant_id` (`commercant_id`);
+
+--
+-- AUTO_INCREMENT pour les tables déchargées
+--
+
+--
+-- AUTO_INCREMENT pour la table `ventes`
+--
+ALTER TABLE `ventes`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Contraintes pour les tables déchargées
+--
+
+--
+-- Contraintes pour la table `ventes`
+--
+ALTER TABLE `ventes`
+  ADD CONSTRAINT `ventes_ibfk_1` FOREIGN KEY (`commercant_id`) REFERENCES `commercants` (`id`);
+COMMIT;
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Base de données : `pos_cçommerces`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Structure de la table `ventes_lignes`
+--
+
+CREATE TABLE `ventes_lignes` (
+  `id` int(11) NOT NULL,
+  `vente_id` int(11) NOT NULL,
+  `produit_id` int(11) NOT NULL,
+  `quantite` int(11) NOT NULL,
+  `prix_unitaire` decimal(10,2) NOT NULL,
+  `sous_total` decimal(10,2) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Index pour les tables déchargées
+--
+
+--
+-- Index pour la table `ventes_lignes`
+--
+ALTER TABLE `ventes_lignes`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `vente_id` (`vente_id`),
+  ADD KEY `produit_id` (`produit_id`);
+
+--
+-- AUTO_INCREMENT pour les tables déchargées
+--
+
+--
+-- AUTO_INCREMENT pour la table `ventes_lignes`
+--
+ALTER TABLE `ventes_lignes`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Contraintes pour les tables déchargées
+--
+
+--
+-- Contraintes pour la table `ventes_lignes`
+--
+ALTER TABLE `ventes_lignes`
+  ADD CONSTRAINT `ventes_lignes_ibfk_1` FOREIGN KEY (`vente_id`) REFERENCES `ventes` (`id`),
+  ADD CONSTRAINT `ventes_lignes_ibfk_2` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`);
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
