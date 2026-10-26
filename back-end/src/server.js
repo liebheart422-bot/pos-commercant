@@ -209,12 +209,50 @@ app.post('/api/ventes', async (req, res) => {
 
         const total = produit.prix_vente * quantite;
 
-        res.json({produit: produit.nom_prod, quantite, total});
+const conn = await pool.getConnection();
+try{
+    await conn.beginTransaction();
+    const [vente] = await conn.query(
+        `INSERT INTO ventes (commercant_id, total) VALUES (?, ?)`,
+        [commercantId, total] 
+    );
+
+    const venteId = vente.insertId;
+
+    await conn.query(
+        `INSERT INTO ventes_lignes (vente_id, produit_id, quantite, prix_unitaire, sous_total) VALUES (?, ?, ?, ?, ?)`,
+        [venteId, produit_id, quantite, produit.prix_vente, total]
+    );
+
+    await conn.query(
+        `UPDATE produits SET quantite_stock = quantite_stock - ? WHERE id = ? AND commercant_id = ?`,
+        [quantite, produit.id, commercantId]
+    );
+
+    await conn.query(
+        `INSERT INTO mouvements_stock (commercant_id, produit_id, type, quantite, motif)
+        VALUES (?, ?, 'sortie', ?, ?)`,
+        [commercantId, produit.id, quantite, `vente n${venteId}`]
+    );
+
+    await conn.commit();
+
+    res.status(201).json({vente_id: venteId, total});
+}catch(err){
+    await conn.rollback();
+    throw err;
+}finally{
+    conn.release();
+}
+
+
     }catch(err){
         console.error(err)
         res.status(500).json({message:'erreur serveur'});
     }
 });
+
+
 
 app.listen(process.env.PORT, () => {
     console.log(`serveur lancé avec succès sur http://localhost:${process.env.PORT}`);
