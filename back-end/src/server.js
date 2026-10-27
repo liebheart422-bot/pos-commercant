@@ -178,81 +178,83 @@ app.post('/api/produits/:id/restock', async (req, res) => {
 });
 
 app.post('/api/ventes', async (req, res) => {
-    try{
-        const commercantId = 1; 
-        const {produit_id, quantite} = req.body;
+  const commercantId = 1; // provisoire
+  const { lignes } = req.body;
 
-        if (!Number.isInteger(quantite) || quantite <= 0)
-        {
-            return res.status(400).json({message:'quantite invalide'});
-        }
+  // 1. validation de la liste
+  if (!Array.isArray(lignes) || lignes.length === 0) {
+    return res.status(400).json({ message: 'lignes est vide ou invalide' });
+  }
+  for (const l of lignes) {
+    if (!Number.isInteger(l.produit_id) || !Number.isInteger(l.quantite) || l.quantite <= 0) {
+      return res.status(400).json({ message: 'ligne invalide' });
+    }
+  }
 
-        const [rows] = await pool.query(
-            `SELECT * FROM produits WHERE id = ? AND commercant_id = ? AND actif = TRUE`,
-            [produit_id, commercantId, quantite]
-        );
-
-        if(rows.length === 0) {
-            return res.status(404).json({message:"produits introuvable"});
-        }
-
-        const produit = rows[0];
-
-        //2. verifier le stock
-
-        if(produit.quantite_stock <  quantite) 
-        {
-            return res.status(400).json({message:'stock insuffisant'});
-        }
-
-        //3. calculer le total cote serveur
-
-        const total = produit.prix_vente * quantite;
-
-const conn = await pool.getConnection();
-try{
+  const conn = await pool.getConnection();
+  try {
     await conn.beginTransaction();
-    const [vente] = await conn.query(
-        `INSERT INTO ventes (commercant_id, total) VALUES (?, ?)`,
-        [commercantId, total] 
-    );
 
+    // 2. créer la vente avec un total provisoire de 0
+    const [vente] = await conn.query(
+      'INSERT INTO ventes (commercant_id, total) VALUES (?, 0)',
+      [commercantId]
+    );
     const venteId = vente.insertId;
 
-    await conn.query(
-        `INSERT INTO ventes_lignes (vente_id, produit_id, quantite, prix_unitaire, sous_total) VALUES (?, ?, ?, ?, ?)`,
-        [venteId, produit_id, quantite, produit.prix_vente, total]
-    );
+    let total = 0;
 
-    await conn.query(
-        `UPDATE produits SET quantite_stock = quantite_stock - ? WHERE id = ? AND commercant_id = ?`,
-        [quantite, produit.id, commercantId]
-    );
+    // 3. boucle sur chaque ligne
+    for (const l of lignes) {
+      const [rows] = await conn.query(
+        'SELECT * FROM produits WHERE id = ? AND commercant_id = ? AND actif = TRUE FOR UPDATE',
+        [l.produit_id, commercantId]
+      );
+      if (rows.length === 0) {
+        await conn.rollback();
+        return res.status(404).json({ message: `Produit ${l.produit_id} introuvable` });
+      }
+      const produit = rows[0];
 
-    await conn.query(
+      if (produit.quantite_stock < l.quantite) {
+        await conn.rollback();
+        return res.status(400).json({ message: `Stock insuffisant pour le produit ${l.produit_id}` });
+      }
+
+      const sousTotal = produit.prix_vente * l.quantite;
+      total += sousTotal;
+
+      await conn.query(
+        `INSERT INTO ventes_lignes (vente_id, produit_id, quantite, prix_unitaire, sous_total)
+         VALUES (?, ?, ?, ?, ?)`,
+        [venteId, produit.id, l.quantite, produit.prix_vente, sousTotal]
+      );
+
+      await conn.query(
+        'UPDATE produits SET quantite_stock = quantite_stock - ? WHERE id = ? AND commercant_id = ?',
+        [l.quantite, produit.id, commercantId]
+      );
+
+      await conn.query(
         `INSERT INTO mouvements_stock (commercant_id, produit_id, type, quantite, motif)
-        VALUES (?, ?, 'sortie', ?, ?)`,
-        [commercantId, produit.id, quantite, `vente n${venteId}`]
-    );
+         VALUES (?, ?, 'sortie', ?, ?)`,
+        [commercantId, produit.id, l.quantite, `Vente n°${venteId}`]
+      );
+    }
+
+    // 4. total final
+    await conn.query('UPDATE ventes SET total = ? WHERE id = ?', [total, venteId]);
 
     await conn.commit();
-
-    res.status(201).json({vente_id: venteId, total});
-}catch(err){
+    res.status(201).json({ vente_id: venteId, total });
+  } catch (err) {
     await conn.rollback();
-    throw err;
-}finally{
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  } finally {
     conn.release();
-}
-
-
-    }catch(err){
-        console.error(err)
-        res.status(500).json({message:'erreur serveur'});
-    }
+  }
 });
-
-
 
 app.listen(process.env.PORT, () => {
     console.log(`serveur lancé avec succès sur http://localhost:${process.env.PORT}`);
