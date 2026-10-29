@@ -256,6 +256,45 @@ app.post('/api/ventes', async (req, res) => {
   }
 });
 
+
+app.get('/api/ventes', async (req, res) => {
+    try{
+        const commercantId = 1 ;
+        const [rows] = await pool.query(
+            `SELECT id, date_vente, total, statut FROM ventes WHERE commercant_id = ? ORDER BY date_vente DESC`,
+            [commercantId]
+        );
+        res.json(rows);
+    }catch(err){
+        console.error(err)
+        res.status(500).json({message: "erreur serveur"});
+    }
+});
+
+app.get('/api/ventes/:id', async (req, res) => {
+    try{
+        const commercantId = 1 ;
+        const {id} = req.params;
+        const [ventes] = await pool.query(
+            `SELECT * FROM ventes WHERE id = ? AND commercant_id = ?`,
+            [id, commercantId]
+        );
+
+        if (ventes.length === 0) {
+            return res.status(400).json({message: 'ventes introuvable'});
+        }
+        
+        const [lignes] = await pool.query(
+            `SELECT produit_id, quantite, prix_unitaire, sous_total FROM ventes_lignes WHERE vente_id = ?`,
+            [id]
+        );
+        res.json({...ventes[0], lignes });
+    }catch(err){
+        console.error(err)
+        res.status(500).json({message:"erreur serveur"});
+    }
+});
+
 app.listen(process.env.PORT, () => {
     console.log(`serveur lancé avec succès sur http://localhost:${process.env.PORT}`);
 });
